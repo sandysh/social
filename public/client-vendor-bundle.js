@@ -145,7 +145,7 @@
 
 "use strict";
 /* WEBPACK VAR INJECTION */(function(process) {/*!
- * Vue.js v2.0.5
+ * Vue.js v2.0.8
  * (c) 2014-2016 Evan You
  * Released under the MIT License.
  */
@@ -1254,9 +1254,11 @@ function defineReactive$$1 (
     },
     set: function reactiveSetter (newVal) {
       var value = getter ? getter.call(obj) : val;
-      if (newVal === value) {
+      /* eslint-disable no-self-compare */
+      if (newVal === value || (newVal !== newVal && value !== value)) {
         return
       }
+      /* eslint-enable no-self-compare */
       if ("development" !== 'production' && customSetter) {
         customSetter();
       }
@@ -1330,7 +1332,7 @@ function del (obj, key) {
  * we cannot intercept array element access like property getters.
  */
 function dependArray (value) {
-  for (var e = void 0, i = 0, l = value.length; i < l; i++) {
+  for (var e = (void 0), i = 0, l = value.length; i < l; i++) {
     e = value[i];
     e && e.__ob__ && e.__ob__.dep.depend();
     if (Array.isArray(e)) {
@@ -1350,6 +1352,8 @@ function initState (vm) {
   initWatch(vm);
 }
 
+var isReservedProp = makeMap('key,ref,slot');
+
 function initProps (vm) {
   var props = vm.$options.props;
   if (props) {
@@ -1362,6 +1366,12 @@ function initProps (vm) {
       var key = keys[i];
       /* istanbul ignore else */
       if (true) {
+        if (isReservedProp(key)) {
+          warn(
+            ("\"" + key + "\" is a reserved attribute and cannot be used as component prop."),
+            vm
+          );
+        }
         defineReactive$$1(vm, key, validateProp(key, props, propsData, vm), function () {
           if (vm.$parent && !observerState.isSettingProps) {
             warn(
@@ -1465,14 +1475,10 @@ function initMethods (vm) {
   if (methods) {
     for (var key in methods) {
       vm[key] = methods[key] == null ? noop : bind$1(methods[key], vm);
-      if (true) {
-        methods[key] == null && warn(
+      if ("development" !== 'production' && methods[key] == null) {
+        warn(
           "method \"" + key + "\" has an undefined value in the component definition. " +
           "Did you reference the function correctly?",
-          vm
-        );
-        hasOwn(Vue$1.prototype, key) && warn(
-          ("Avoid overriding Vue's internal method \"" + key + "\"."),
           vm
         );
       }
@@ -1746,7 +1752,9 @@ function normalizeChildren (
         }
       } else if (c instanceof VNode) {
         if (c.text && last && last.text) {
-          last.text += c.text;
+          if (!last.isCloned) {
+            last.text += c.text;
+          }
         } else {
           // inherit parent namespace
           if (ns) {
@@ -1825,7 +1833,7 @@ function lifecycleMixin (Vue) {
       vm.$options.render = emptyVNode;
       if (true) {
         /* istanbul ignore if */
-        if (vm.$options.template) {
+        if (vm.$options.template && vm.$options.template.charAt(0) !== '#') {
           warn(
             'You are using the runtime-only build of Vue where the template ' +
             'option is not available. Either pre-compile the templates into ' +
@@ -2000,8 +2008,9 @@ function createComponent (
     return
   }
 
+  var baseCtor = context.$options._base;
   if (isObject(Ctor)) {
-    Ctor = Vue$1.extend(Ctor);
+    Ctor = baseCtor.extend(Ctor);
   }
 
   if (typeof Ctor !== 'function') {
@@ -2011,16 +2020,12 @@ function createComponent (
     return
   }
 
-  // resolve constructor options in case global mixins are applied after
-  // component constructor creation
-  resolveConstructorOptions(Ctor);
-
   // async component
   if (!Ctor.cid) {
     if (Ctor.resolved) {
       Ctor = Ctor.resolved;
     } else {
-      Ctor = resolveAsyncComponent(Ctor, function () {
+      Ctor = resolveAsyncComponent(Ctor, baseCtor, function () {
         // it's ok to queue this on every render because
         // $forceUpdate is buffered by the scheduler.
         context.$forceUpdate();
@@ -2032,6 +2037,10 @@ function createComponent (
       }
     }
   }
+
+  // resolve constructor options in case global mixins are applied after
+  // component constructor creation
+  resolveConstructorOptions(Ctor);
 
   data = data || {};
 
@@ -2131,6 +2140,10 @@ function init (vnode, hydrating) {
   if (!vnode.child || vnode.child._isDestroyed) {
     var child = vnode.child = createComponentInstanceForVnode(vnode, activeInstance);
     child.$mount(hydrating ? vnode.elm : undefined, hydrating);
+  } else if (vnode.data.keepAlive) {
+    // kept-alive components, treat as a patch
+    var mountedNode = vnode; // work around flow
+    prepatch(mountedNode, mountedNode);
   }
 }
 
@@ -2172,6 +2185,7 @@ function destroy$1 (vnode) {
 
 function resolveAsyncComponent (
   factory,
+  baseCtor,
   cb
 ) {
   if (factory.requested) {
@@ -2184,7 +2198,7 @@ function resolveAsyncComponent (
 
     var resolve = function (res) {
       if (isObject(res)) {
-        res = Vue$1.extend(res);
+        res = baseCtor.extend(res);
       }
       // cache resolved
       factory.resolved = res;
@@ -2541,6 +2555,7 @@ function renderMixin (Vue) {
   // apply v-bind object
   Vue.prototype._b = function bindProps (
     data,
+    tag,
     value,
     asProp
   ) {
@@ -2558,7 +2573,7 @@ function renderMixin (Vue) {
           if (key === 'class' || key === 'style') {
             data[key] = value[key];
           } else {
-            var hash = asProp || config.mustUseProp(key)
+            var hash = asProp || config.mustUseProp(tag, key)
               ? data.domProps || (data.domProps = {})
               : data.attrs || (data.attrs = {});
             hash[key] = value[key];
@@ -2764,19 +2779,19 @@ function resolveConstructorOptions (Ctor) {
   return options
 }
 
-function Vue$1 (options) {
+function Vue$2 (options) {
   if ("development" !== 'production' &&
-    !(this instanceof Vue$1)) {
+    !(this instanceof Vue$2)) {
     warn('Vue is a constructor and should be called with the `new` keyword');
   }
   this._init(options);
 }
 
-initMixin(Vue$1);
-stateMixin(Vue$1);
-eventsMixin(Vue$1);
-lifecycleMixin(Vue$1);
-renderMixin(Vue$1);
+initMixin(Vue$2);
+stateMixin(Vue$2);
+eventsMixin(Vue$2);
+lifecycleMixin(Vue$2);
+renderMixin(Vue$2);
 
 var warn = noop;
 var formatComponentName;
@@ -2841,13 +2856,16 @@ if (true) {
  * Helper that recursively merges two data objects together.
  */
 function mergeData (to, from) {
+  if (!from) { return to }
   var key, toVal, fromVal;
-  for (key in from) {
+  var keys = Object.keys(from);
+  for (var i = 0; i < keys.length; i++) {
+    key = keys[i];
     toVal = to[key];
     fromVal = from[key];
     if (!hasOwn(to, key)) {
       set(to, key, fromVal);
-    } else if (isObject(toVal) && isObject(fromVal)) {
+    } else if (isPlainObject(toVal) && isPlainObject(fromVal)) {
       mergeData(toVal, fromVal);
     }
   }
@@ -3079,7 +3097,7 @@ function mergeOptions (
   if (child.mixins) {
     for (var i = 0, l = child.mixins.length; i < l; i++) {
       var mixin = child.mixins[i];
-      if (mixin.prototype instanceof Vue$1) {
+      if (mixin.prototype instanceof Vue$2) {
         mixin = mixin.options;
       }
       parent = mergeOptions(parent, mixin, vm);
@@ -3373,7 +3391,7 @@ function initUse (Vue) {
 
 function initMixin$1 (Vue) {
   Vue.mixin = function (mixin) {
-    Vue.options = mergeOptions(Vue.options, mixin);
+    this.options = mergeOptions(this.options, mixin);
   };
 }
 
@@ -3394,9 +3412,10 @@ function initExtend (Vue) {
   Vue.extend = function (extendOptions) {
     extendOptions = extendOptions || {};
     var Super = this;
-    var isFirstExtend = Super.cid === 0;
-    if (isFirstExtend && extendOptions._Ctor) {
-      return extendOptions._Ctor
+    var SuperId = Super.cid;
+    var cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {});
+    if (cachedCtors[SuperId]) {
+      return cachedCtors[SuperId]
     }
     var name = extendOptions.name || Super.options.name;
     if (true) {
@@ -3418,8 +3437,10 @@ function initExtend (Vue) {
       extendOptions
     );
     Sub['super'] = Super;
-    // allow further extension
+    // allow further extension/mixin/plugin usage
     Sub.extend = Super.extend;
+    Sub.mixin = Super.mixin;
+    Sub.use = Super.use;
     // create asset registers, so extended classes
     // can have their private assets too.
     config._assetTypes.forEach(function (type) {
@@ -3435,9 +3456,7 @@ function initExtend (Vue) {
     Sub.superOptions = Super.options;
     Sub.extendOptions = extendOptions;
     // cache constructor
-    if (isFirstExtend) {
-      extendOptions._Ctor = Sub;
-    }
+    cachedCtors[SuperId] = Sub;
     return Sub
   };
 }
@@ -3467,7 +3486,7 @@ function initAssetRegisters (Vue) {
         }
         if (type === 'component' && isPlainObject(definition)) {
           definition.name = definition.name || id;
-          definition = Vue.extend(definition);
+          definition = this.options._base.extend(definition);
         }
         if (type === 'directive' && typeof definition === 'function') {
           definition = { bind: definition, update: definition };
@@ -3542,6 +3561,10 @@ function initGlobalAPI (Vue) {
     Vue.options[type + 's'] = Object.create(null);
   });
 
+  // this is used to identify the "base" constructor to extend all plain-object
+  // components with in Weex's multi-instance scenarios.
+  Vue.options._base = Vue;
+
   extend(Vue.options.components, builtInComponents);
 
   initUse(Vue);
@@ -3550,18 +3573,25 @@ function initGlobalAPI (Vue) {
   initAssetRegisters(Vue);
 }
 
-initGlobalAPI(Vue$1);
+initGlobalAPI(Vue$2);
 
-Object.defineProperty(Vue$1.prototype, '$isServer', {
+Object.defineProperty(Vue$2.prototype, '$isServer', {
   get: function () { return config._isServer; }
 });
 
-Vue$1.version = '2.0.5';
+Vue$2.version = '2.0.8';
 
 /*  */
 
 // attributes that should be using props for binding
-var mustUseProp = makeMap('value,selected,checked,muted');
+var mustUseProp = function (tag, attr) {
+  return (
+    (attr === 'value' && (tag === 'input' || tag === 'textarea' || tag === 'option')) ||
+    (attr === 'selected' && tag === 'option') ||
+    (attr === 'checked' && tag === 'input') ||
+    (attr === 'muted' && tag === 'video')
+  )
+};
 
 var isEnumeratedAttr = makeMap('contenteditable,draggable,spellcheck');
 
@@ -3683,7 +3713,7 @@ function stringifyClass (value) {
 var namespaceMap = {
   svg: 'http://www.w3.org/2000/svg',
   math: 'http://www.w3.org/1998/Math/MathML',
-  xhtml: 'http://www.w3.org/1999/xhtm'
+  xhtml: 'http://www.w3.org/1999/xhtml'
 };
 
 var isHTMLTag = makeMap(
@@ -3905,7 +3935,7 @@ function registerRef (vnode, isRemoval) {
     }
   } else {
     if (vnode.data.refInFor) {
-      if (Array.isArray(refs[key])) {
+      if (Array.isArray(refs[key]) && refs[key].indexOf(ref) < 0) {
         refs[key].push(ref);
       } else {
         refs[key] = [ref];
@@ -4361,7 +4391,7 @@ function createPatchFunction (backend) {
     if (vnode.tag) {
       return (
         vnode.tag.indexOf('vue-component') === 0 ||
-        vnode.tag === nodeOps.tagName(node).toLowerCase()
+        vnode.tag.toLowerCase() === nodeOps.tagName(node).toLowerCase()
       )
     } else {
       return _toString(vnode.text) === node.data
@@ -4695,13 +4725,14 @@ function updateDOMProps (oldVnode, vnode) {
     }
   }
   for (key in props) {
+    cur = props[key];
     // ignore children if the node has textContent or innerHTML,
     // as these will throw away existing DOM nodes and cause removal errors
     // on subsequent patches (#3360)
-    if ((key === 'textContent' || key === 'innerHTML') && vnode.children) {
-      vnode.children.length = 0;
+    if (key === 'textContent' || key === 'innerHTML') {
+      if (vnode.children) { vnode.children.length = 0; }
+      if (cur === oldProps[key]) { continue }
     }
-    cur = props[key];
     if (key === 'value') {
       // store value as _value as well since
       // non-string values will be stringified
@@ -4721,6 +4752,75 @@ var domProps = {
   create: updateDOMProps,
   update: updateDOMProps
 };
+
+/*  */
+
+var parseStyleText = cached(function (cssText) {
+  var res = {};
+  var hasBackground = cssText.indexOf('background') >= 0;
+  // maybe with background-image: url(http://xxx) or base64 img
+  var listDelimiter = hasBackground ? /;(?![^(]*\))/g : ';';
+  var propertyDelimiter = hasBackground ? /:(.+)/ : ':';
+  cssText.split(listDelimiter).forEach(function (item) {
+    if (item) {
+      var tmp = item.split(propertyDelimiter);
+      tmp.length > 1 && (res[tmp[0].trim()] = tmp[1].trim());
+    }
+  });
+  return res
+});
+
+// merge static and dynamic style data on the same vnode
+function normalizeStyleData (data) {
+  var style = normalizeStyleBinding(data.style);
+  // static style is pre-processed into an object during compilation
+  // and is always a fresh object, so it's safe to merge into it
+  return data.staticStyle
+    ? extend(data.staticStyle, style)
+    : style
+}
+
+// normalize possible array / string values into Object
+function normalizeStyleBinding (bindingStyle) {
+  if (Array.isArray(bindingStyle)) {
+    return toObject(bindingStyle)
+  }
+  if (typeof bindingStyle === 'string') {
+    return parseStyleText(bindingStyle)
+  }
+  return bindingStyle
+}
+
+/**
+ * parent component style should be after child's
+ * so that parent component's style could override it
+ */
+function getStyle (vnode, checkChild) {
+  var res = {};
+  var styleData;
+
+  if (checkChild) {
+    var childNode = vnode;
+    while (childNode.child) {
+      childNode = childNode.child._vnode;
+      if (childNode.data && (styleData = normalizeStyleData(childNode.data))) {
+        extend(res, styleData);
+      }
+    }
+  }
+
+  if ((styleData = normalizeStyleData(vnode.data))) {
+    extend(res, styleData);
+  }
+
+  var parentNode = vnode;
+  while ((parentNode = parentNode.parent)) {
+    if (parentNode.data && (styleData = normalizeStyleData(parentNode.data))) {
+      extend(res, styleData);
+    }
+  }
+  return res
+}
 
 /*  */
 
@@ -4753,40 +4853,35 @@ var normalize = cached(function (prop) {
 });
 
 function updateStyle (oldVnode, vnode) {
-  if ((!oldVnode.data || !oldVnode.data.style) && !vnode.data.style) {
+  var data = vnode.data;
+  var oldData = oldVnode.data;
+
+  if (!data.staticStyle && !data.style &&
+      !oldData.staticStyle && !oldData.style) {
     return
   }
+
   var cur, name;
   var el = vnode.elm;
-  var oldStyle = oldVnode.data.style || {};
-  var style = vnode.data.style || {};
+  var oldStaticStyle = oldVnode.data.staticStyle;
+  var oldStyleBinding = oldVnode.data.style || {};
 
-  // handle string
-  if (typeof style === 'string') {
-    el.style.cssText = style;
-    return
-  }
+  // if static style exists, stylebinding already merged into it when doing normalizeStyleData
+  var oldStyle = oldStaticStyle || oldStyleBinding;
 
-  var needClone = style.__ob__;
+  var style = normalizeStyleBinding(vnode.data.style) || {};
 
-  // handle array syntax
-  if (Array.isArray(style)) {
-    style = vnode.data.style = toObject(style);
-  }
+  vnode.data.style = style.__ob__ ? extend({}, style) : style;
 
-  // clone the style for future updates,
-  // in case the user mutates the style object in-place.
-  if (needClone) {
-    style = vnode.data.style = extend({}, style);
-  }
+  var newStyle = getStyle(vnode, true);
 
   for (name in oldStyle) {
-    if (style[name] == null) {
+    if (newStyle[name] == null) {
       setProp(el, name, '');
     }
   }
-  for (name in style) {
-    cur = style[name];
+  for (name in newStyle) {
+    cur = newStyle[name];
     if (cur !== oldStyle[name]) {
       // ie9 setting to null has no effect, must use empty string
       setProp(el, name, cur == null ? '' : cur);
@@ -5692,7 +5787,7 @@ var TransitionGroup = {
 
   updated: function updated () {
     var children = this.prevChildren;
-    var moveClass = this.moveClass || (this.name + '-move');
+    var moveClass = this.moveClass || ((this.name || 'v') + '-move');
     if (!children.length || !this.hasMove(children[0].elm, moveClass)) {
       return
     }
@@ -5776,20 +5871,20 @@ var platformComponents = {
 /*  */
 
 // install platform specific utils
-Vue$1.config.isUnknownElement = isUnknownElement;
-Vue$1.config.isReservedTag = isReservedTag;
-Vue$1.config.getTagNamespace = getTagNamespace;
-Vue$1.config.mustUseProp = mustUseProp;
+Vue$2.config.isUnknownElement = isUnknownElement;
+Vue$2.config.isReservedTag = isReservedTag;
+Vue$2.config.getTagNamespace = getTagNamespace;
+Vue$2.config.mustUseProp = mustUseProp;
 
 // install platform runtime directives & components
-extend(Vue$1.options.directives, platformDirectives);
-extend(Vue$1.options.components, platformComponents);
+extend(Vue$2.options.directives, platformDirectives);
+extend(Vue$2.options.components, platformComponents);
 
 // install platform patch function
-Vue$1.prototype.__patch__ = config._isServer ? noop : patch$1;
+Vue$2.prototype.__patch__ = config._isServer ? noop : patch$1;
 
 // wrap mount
-Vue$1.prototype.$mount = function (
+Vue$2.prototype.$mount = function (
   el,
   hydrating
 ) {
@@ -5802,7 +5897,7 @@ Vue$1.prototype.$mount = function (
 setTimeout(function () {
   if (config.devtools) {
     if (devtools) {
-      devtools.emit('init', Vue$1);
+      devtools.emit('init', Vue$2);
     } else if (
       "development" !== 'production' &&
       inBrowser && /Chrome\/\d+/.test(window.navigator.userAgent)
@@ -5815,7 +5910,7 @@ setTimeout(function () {
   }
 }, 0);
 
-module.exports = Vue$1;
+module.exports = Vue$2;
 
 /* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)))
 
@@ -8197,7 +8292,7 @@ module.exports = LRUCache
 
 // This will be a proper iterable 'Map' in engines that support it,
 // or a fakey-fake PseudoMap in older versions.
-var Map = __webpack_require__(53)
+var Map = __webpack_require__(52)
 var util = __webpack_require__(56)
 
 // A linked list to keep track of recently-used-ness
@@ -8857,7 +8952,7 @@ process.umask = function() { return 0; };
 /***/ function(module, exports, __webpack_require__) {
 
 /**
- * vue-router v2.0.1
+ * vue-router v2.0.3
  * (c) 2016 Evan You
  * @license MIT
  */
@@ -8913,6 +9008,9 @@ var View = {
     if (!inactive) {
       var hooks = data.hook || (data.hook = {})
       hooks.init = function (vnode) {
+        matched.instances[name] = vnode.child
+      }
+      hooks.prepatch = function (oldVnode, vnode) {
         matched.instances[name] = vnode.child
       }
       hooks.destroy = function (vnode) {
@@ -9041,7 +9139,7 @@ function resolveQuery (
 }
 
 function parseQuery (query) {
-  var res = Object.create(null)
+  var res = {}
 
   query = query.trim().replace(/^(\?|#|&)/, '')
 
@@ -9183,7 +9281,7 @@ function isObjectEqual (a, b) {
 
 function isIncludedRoute (current, target) {
   return (
-    current.path.indexOf(target.path) === 0 &&
+    current.path.indexOf(target.path.replace(/\/$/, '')) === 0 &&
     (!target.hash || current.hash === target.hash) &&
     queryIncludes(current.query, target.query)
   )
@@ -9256,10 +9354,10 @@ var Link = {
     var router = this.$router
     var current = this.$route
     var to = normalizeLocation(this.to, current, this.append)
-    var resolved = router.match(to)
+    var resolved = router.match(to, current)
     var fullPath = resolved.redirectedFrom || resolved.fullPath
     var base = router.history.base
-    var href = base ? cleanPath(base + fullPath) : fullPath
+    var href = createHref(base, fullPath, router.mode)
     var classes = {}
     var activeClass = this.activeClass || router.options.linkActiveClass || 'router-link-active'
     var compareTarget = to.path ? createRoute(null, to) : resolved
@@ -9278,6 +9376,11 @@ var Link = {
         // don't redirect on right click
         /* istanbul ignore if */
         if (e.button !== 0) { return }
+        // don't redirect if `target="_blank"`
+        /* istanbul ignore if */
+        var target = e.target.getAttribute('target')
+        if (/\b_blank\b/i.test(target)) { return }
+
         e.preventDefault()
         if (this$1.replace) {
           router.replace(to)
@@ -9298,9 +9401,12 @@ var Link = {
       // find the first <a> child and apply listener and href
       var a = findAnchor(this.$slots.default)
       if (a) {
-        var aData = a.data || (a.data = {})
+        // in case the <a> is a static node
+        a.isStatic = false
+        var extend = _Vue.util.extend
+        var aData = a.data = extend({}, a.data)
         aData.on = on
-        var aAttrs = aData.attrs || (aData.attrs = {})
+        var aAttrs = a.data.attrs = extend({}, a.data.attrs)
         aAttrs.href = href
       } else {
         // doesn't have <a> child, apply listener to self
@@ -9327,9 +9433,18 @@ function findAnchor (children) {
   }
 }
 
+function createHref (base, fullPath, mode) {
+  var path = mode === 'hash' ? '/#' + fullPath : fullPath
+  return base ? cleanPath(base + path) : path
+}
+
+var _Vue
+
 function install (Vue) {
   if (install.installed) { return }
   install.installed = true
+
+  _Vue = Vue
 
   Object.defineProperty(Vue.prototype, '$router', {
     get: function get () { return this.$root._router }
@@ -9351,6 +9466,10 @@ function install (Vue) {
 
   Vue.component('router-view', View)
   Vue.component('router-link', Link)
+
+  var strats = Vue.config.optionMergeStrategies
+  // use the same hook merging strategy for route hooks
+  strats.beforeRouteEnter = strats.beforeRouteLeave = strats.created
 }
 
 var __moduleExports = Array.isArray || function (arr) {
@@ -9389,14 +9508,16 @@ var PATH_REGEXP = new RegExp([
 /**
  * Parse a string for the raw tokens.
  *
- * @param  {string} str
+ * @param  {string}  str
+ * @param  {Object=} options
  * @return {!Array}
  */
-function parse (str) {
+function parse (str, options) {
   var tokens = []
   var key = 0
   var index = 0
   var path = ''
+  var defaultDelimiter = options && options.delimiter || '/'
   var res
 
   while ((res = PATH_REGEXP.exec(str)) != null) {
@@ -9429,8 +9550,8 @@ function parse (str) {
     var partial = prefix != null && next != null && next !== prefix
     var repeat = modifier === '+' || modifier === '*'
     var optional = modifier === '?' || modifier === '*'
-    var delimiter = res[2] || '/'
-    var pattern = capture || group || (asterisk ? '.*' : '[^' + delimiter + ']+?')
+    var delimiter = res[2] || defaultDelimiter
+    var pattern = capture || group
 
     tokens.push({
       name: name || key++,
@@ -9440,7 +9561,7 @@ function parse (str) {
       repeat: repeat,
       partial: partial,
       asterisk: !!asterisk,
-      pattern: escapeGroup(pattern)
+      pattern: pattern ? escapeGroup(pattern) : (asterisk ? '.*' : '[^' + escapeString(delimiter) + ']+?')
     })
   }
 
@@ -9461,10 +9582,11 @@ function parse (str) {
  * Compile a string to a template function for the path.
  *
  * @param  {string}             str
+ * @param  {Object=}            options
  * @return {!function(Object=, Object=)}
  */
-function compile (str) {
-  return tokensToFunction(parse(str))
+function compile (str, options) {
+  return tokensToFunction(parse(str, options))
 }
 
 /**
@@ -9675,34 +9797,28 @@ function arrayToRegexp (path, keys, options) {
  * @return {!RegExp}
  */
 function stringToRegexp (path, keys, options) {
-  var tokens = parse(path)
-  var re = tokensToRegExp(tokens, options)
-
-  // Attach keys back to the regexp.
-  for (var i = 0; i < tokens.length; i++) {
-    if (typeof tokens[i] !== 'string') {
-      keys.push(tokens[i])
-    }
-  }
-
-  return attachKeys(re, keys)
+  return tokensToRegExp(parse(path, options), keys, options)
 }
 
 /**
  * Expose a function for taking tokens and returning a RegExp.
  *
- * @param  {!Array}  tokens
- * @param  {Object=} options
+ * @param  {!Array}          tokens
+ * @param  {(Array|Object)=} keys
+ * @param  {Object=}         options
  * @return {!RegExp}
  */
-function tokensToRegExp (tokens, options) {
+function tokensToRegExp (tokens, keys, options) {
+  if (!isarray(keys)) {
+    options = /** @type {!Object} */ (keys || options)
+    keys = []
+  }
+
   options = options || {}
 
   var strict = options.strict
   var end = options.end !== false
   var route = ''
-  var lastToken = tokens[tokens.length - 1]
-  var endsWithSlash = typeof lastToken === 'string' && /\/$/.test(lastToken)
 
   // Iterate over the tokens and create our regexp string.
   for (var i = 0; i < tokens.length; i++) {
@@ -9713,6 +9829,8 @@ function tokensToRegExp (tokens, options) {
     } else {
       var prefix = escapeString(token.prefix)
       var capture = '(?:' + token.pattern + ')'
+
+      keys.push(token)
 
       if (token.repeat) {
         capture += '(?:' + prefix + capture + ')*'
@@ -9732,12 +9850,15 @@ function tokensToRegExp (tokens, options) {
     }
   }
 
+  var delimiter = escapeString(options.delimiter || '/')
+  var endsWithDelimiter = route.slice(-delimiter.length) === delimiter
+
   // In non-strict mode we allow a slash at the end of match. If the path to
   // match already ends with a slash, we remove it for consistency. The slash
   // is valid at the end of a path match, not in the middle. This is important
   // in non-ending mode, where "/test/" shouldn't match "/test//route".
   if (!strict) {
-    route = (endsWithSlash ? route.slice(0, -2) : route) + '(?:\\/(?=$))?'
+    route = (endsWithDelimiter ? route.slice(0, -delimiter.length) : route) + '(?:' + delimiter + '(?=$))?'
   }
 
   if (end) {
@@ -9745,10 +9866,10 @@ function tokensToRegExp (tokens, options) {
   } else {
     // In non-ending mode, we need the capturing groups to match as much as
     // possible by using a positive lookahead to the end or next path segment.
-    route += strict && endsWithSlash ? '' : '(?=\\/|$)'
+    route += strict && endsWithDelimiter ? '' : '(?=' + delimiter + '|$)'
   }
 
-  return new RegExp('^' + route, flags(options))
+  return attachKeys(new RegExp('^' + route, flags(options)), keys)
 }
 
 /**
@@ -9764,14 +9885,12 @@ function tokensToRegExp (tokens, options) {
  * @return {!RegExp}
  */
 function pathToRegexp (path, keys, options) {
-  keys = keys || []
-
   if (!isarray(keys)) {
-    options = /** @type {!Object} */ (keys)
+    options = /** @type {!Object} */ (keys || options)
     keys = []
-  } else if (!options) {
-    options = {}
   }
+
+  options = options || {}
 
   if (path instanceof RegExp) {
     return regexpToRegexp(path, /** @type {!Array} */ (keys))
@@ -9838,7 +9957,7 @@ function addRouteRecord (
     })
   }
 
-  if (route.alias) {
+  if (route.alias !== undefined) {
     if (Array.isArray(route.alias)) {
       route.alias.forEach(function (alias) {
         addRouteRecord(pathMap, nameMap, { path: alias }, parent, record.path)
@@ -9849,7 +9968,13 @@ function addRouteRecord (
   }
 
   pathMap[record.path] = record
-  if (name) { nameMap[name] = record }
+  if (name) {
+    if (!nameMap[name]) {
+      nameMap[name] = record
+    } else {
+      warn(false, ("Duplicate named routes definition: { name: \"" + name + "\", path: \"" + (record.path) + "\" }"))
+    }
+  }
 }
 
 function normalizePath (path, parent) {
@@ -9862,6 +9987,8 @@ function normalizePath (path, parent) {
 /*  */
 
 var regexpCache = Object.create(null)
+
+var regexpParamsCache = Object.create(null)
 
 var regexpCompileCache = Object.create(null)
 
@@ -9880,6 +10007,20 @@ function createMatcher (routes) {
 
     if (name) {
       var record = nameMap[name]
+      var paramNames = getParams(record.path)
+
+      if (typeof location.params !== 'object') {
+        location.params = {}
+      }
+
+      if (currentRoute && typeof currentRoute.params === 'object') {
+        for (var key in currentRoute.params) {
+          if (!(key in location.params) && paramNames.indexOf(key) > -1) {
+            location.params[key] = currentRoute.params[key]
+          }
+        }
+      }
+
       if (record) {
         location.path = fillParams(record.path, location.params, ("named route \"" + name + "\""))
         return _createRoute(record, location, redirectedFrom)
@@ -9989,13 +10130,10 @@ function createMatcher (routes) {
   return match
 }
 
-function matchRoute (
-  path,
-  params,
-  pathname
-) {
-  var keys, regexp
+function getRouteRegex (path) {
   var hit = regexpCache[path]
+  var keys, regexp
+
   if (hit) {
     keys = hit.keys
     regexp = hit.regexp
@@ -10004,6 +10142,18 @@ function matchRoute (
     regexp = index(path, keys)
     regexpCache[path] = { keys: keys, regexp: regexp }
   }
+
+  return { keys: keys, regexp: regexp }
+}
+
+function matchRoute (
+  path,
+  params,
+  pathname
+) {
+  var ref = getRouteRegex(path);
+  var regexp = ref.regexp;
+  var keys = ref.keys;
   var m = pathname.match(regexp)
 
   if (!m) {
@@ -10035,6 +10185,11 @@ function fillParams (
     assert(false, ("missing param for " + routeMsg + ": " + (e.message)))
     return ''
   }
+}
+
+function getParams (path) {
+  return regexpParamsCache[path] ||
+    (regexpParamsCache[path] = getRouteRegex(path).keys.map(function (key) { return key.name; }))
 }
 
 function resolveRecordPath (path, record) {
@@ -10135,7 +10290,7 @@ History.prototype.confirmTransition = function confirmTransition (route, cb) {
     hook(route, current, function (to) {
       if (to === false) {
         // next(false) -> abort navigation, ensure current URL
-        this$1.ensureURL()
+        this$1.ensureURL(true)
       } else if (typeof to === 'string' || typeof to === 'object') {
         // next('/') or next({ path: '/' }) -> redirect
         this$1.push(to)
@@ -10209,15 +10364,35 @@ function resolveQueue (
   }
 }
 
+function extractGuard (
+  def,
+  key
+) {
+  if (typeof def !== 'function') {
+    // extend now so that global mixins are applied.
+    def = _Vue.extend(def)
+  }
+  return def.options[key]
+}
+
 function extractLeaveGuards (matched) {
-  return flatMapComponents(matched, function (def, instance) {
-    var guard = def && def.beforeRouteLeave
+  return flatten(flatMapComponents(matched, function (def, instance) {
+    var guard = extractGuard(def, 'beforeRouteLeave')
     if (guard) {
-      return function routeLeaveGuard () {
-        return guard.apply(instance, arguments)
-      }
+      return Array.isArray(guard)
+        ? guard.map(function (guard) { return wrapLeaveGuard(guard, instance); })
+        : wrapLeaveGuard(guard, instance)
     }
-  }).reverse()
+  }).reverse())
+}
+
+function wrapLeaveGuard (
+  guard,
+  instance
+) {
+  return function routeLeaveGuard () {
+    return guard.apply(instance, arguments)
+  }
 }
 
 function extractEnterGuards (
@@ -10225,29 +10400,46 @@ function extractEnterGuards (
   cbs,
   isValid
 ) {
-  return flatMapComponents(matched, function (def, _, match, key) {
-    var guard = def && def.beforeRouteEnter
+  return flatten(flatMapComponents(matched, function (def, _, match, key) {
+    var guard = extractGuard(def, 'beforeRouteEnter')
     if (guard) {
-      return function routeEnterGuard (to, from, next) {
-        return guard(to, from, function (cb) {
-          next(cb)
-          if (typeof cb === 'function') {
-            cbs.push(function () {
-              // #750
-              // if a router-view is wrapped with an out-in transition,
-              // the instance may not have been registered at this time.
-              // we will need to poll for registration until current route
-              // is no longer valid.
-              poll(cb, match.instances, key, isValid)
-            })
-          }
-        })
-      }
+      return Array.isArray(guard)
+        ? guard.map(function (guard) { return wrapEnterGuard(guard, cbs, match, key, isValid); })
+        : wrapEnterGuard(guard, cbs, match, key, isValid)
     }
-  })
+  }))
 }
 
-function poll (cb, instances, key, isValid) {
+function wrapEnterGuard (
+  guard,
+  cbs,
+  match,
+  key,
+  isValid
+) {
+  return function routeEnterGuard (to, from, next) {
+    return guard(to, from, function (cb) {
+      next(cb)
+      if (typeof cb === 'function') {
+        cbs.push(function () {
+          // #750
+          // if a router-view is wrapped with an out-in transition,
+          // the instance may not have been registered at this time.
+          // we will need to poll for registration until current route
+          // is no longer valid.
+          poll(cb, match.instances, key, isValid)
+        })
+      }
+    })
+  }
+}
+
+function poll (
+  cb, // somehow flow cannot infer this is a function
+  instances,
+  key,
+  isValid
+) {
   if (instances[key]) {
     cb(instances[key])
   } else if (isValid()) {
@@ -10289,7 +10481,7 @@ function flatMapComponents (
   matched,
   fn
 ) {
-  return Array.prototype.concat.apply([], matched.map(function (m) {
+  return flatten(matched.map(function (m) {
     return Object.keys(m.components).map(function (key) { return fn(
       m.components[key],
       m.instances[key],
@@ -10298,19 +10490,25 @@ function flatMapComponents (
   }))
 }
 
+function flatten (arr) {
+  return Array.prototype.concat.apply([], arr)
+}
+
 /*  */
+
+var positionStore = Object.create(null)
 
 function saveScrollPosition (key) {
   if (!key) { return }
-  window.sessionStorage.setItem(key, JSON.stringify({
+  positionStore[key] = {
     x: window.pageXOffset,
     y: window.pageYOffset
-  }))
+  }
 }
 
 function getScrollPosition (key) {
   if (!key) { return }
-  return JSON.parse(window.sessionStorage.getItem(key))
+  return positionStore[key]
 }
 
 function getElementPosition (el) {
@@ -10348,8 +10546,6 @@ var HTML5History = (function (History) {
     var this$1 = this;
 
     History.call(this, router, base)
-
-    this.transitionTo(getLocation(this.base))
 
     var expectScroll = router.options.scrollBehavior
     window.addEventListener('popstate', function (e) {
@@ -10397,9 +10593,10 @@ var HTML5History = (function (History) {
     })
   };
 
-  HTML5History.prototype.ensureURL = function ensureURL () {
+  HTML5History.prototype.ensureURL = function ensureURL (push) {
     if (getLocation(this.base) !== this.current.fullPath) {
-      replaceState(cleanPath(this.base + this.current.fullPath))
+      var current = cleanPath(this.base + this.current.fullPath)
+      push ? pushState(current) : replaceState(current)
     }
   };
 
@@ -10477,8 +10674,6 @@ function replaceState (url) {
 
 var HashHistory = (function (History) {
   function HashHistory (router, base, fallback) {
-    var this$1 = this;
-
     History.call(this, router, base)
 
     // check history fallback deeplinking
@@ -10487,11 +10682,6 @@ var HashHistory = (function (History) {
     }
 
     ensureSlash()
-    this.transitionTo(getHash(), function () {
-      window.addEventListener('hashchange', function () {
-        this$1.onHashChange()
-      })
-    })
   }
 
   if ( History ) HashHistory.__proto__ = History;
@@ -10533,9 +10723,10 @@ var HashHistory = (function (History) {
     window.history.go(n)
   };
 
-  HashHistory.prototype.ensureURL = function ensureURL () {
-    if (getHash() !== this.current.fullPath) {
-      replaceHash(this.current.fullPath)
+  HashHistory.prototype.ensureURL = function ensureURL (push) {
+    var current = this.current.fullPath
+    if (getHash() !== current) {
+      push ? pushHash(current) : replaceHash(current)
     }
   };
 
@@ -10642,6 +10833,20 @@ var VueRouter = function VueRouter (options) {
     mode = 'abstract'
   }
   this.mode = mode
+
+  switch (mode) {
+    case 'history':
+      this.history = new HTML5History(this, options.base)
+      break
+    case 'hash':
+      this.history = new HashHistory(this, options.base, this.fallback)
+      break
+    case 'abstract':
+      this.history = new AbstractHistory(this)
+      break
+    default:
+      assert(false, ("invalid mode: " + mode))
+  }
 };
 
 var prototypeAccessors = { currentRoute: {} };
@@ -10661,25 +10866,19 @@ VueRouter.prototype.init = function init (app /* Vue component instance */) {
 
   this.app = app
 
-  var ref = this;
-    var mode = ref.mode;
-    var options = ref.options;
-    var fallback = ref.fallback;
-  switch (mode) {
-    case 'history':
-      this.history = new HTML5History(this, options.base)
-      break
-    case 'hash':
-      this.history = new HashHistory(this, options.base, fallback)
-      break
-    case 'abstract':
-      this.history = new AbstractHistory(this)
-      break
-    default:
-      assert(false, ("invalid mode: " + mode))
+  var history = this.history
+
+  if (history instanceof HTML5History) {
+    history.transitionTo(getLocation(history.base))
+  } else if (history instanceof HashHistory) {
+    history.transitionTo(getHash(), function () {
+      window.addEventListener('hashchange', function () {
+        history.onHashChange()
+      })
+    })
   }
 
-  this.history.listen(function (route) {
+  history.listen(function (route) {
     this$1.app._route = route
   })
 };
@@ -10738,36 +10937,6 @@ return VueRouter;
 /***/ },
 
 /***/ 52:
-/***/ function(module, exports) {
-
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-
-/***/ },
-
-/***/ 53:
 /***/ function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {if (process.env.npm_package_name === 'pseudomap' &&
@@ -10777,14 +10946,14 @@ if (typeof Object.create === 'function') {
 if (typeof Map === 'function' && !process.env.TEST_PSEUDOMAP) {
   module.exports = Map
 } else {
-  module.exports = __webpack_require__(54)
+  module.exports = __webpack_require__(53)
 }
 
 /* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)))
 
 /***/ },
 
-/***/ 54:
+/***/ 53:
 /***/ function(module, exports) {
 
 var hasOwnProperty = Object.prototype.hasOwnProperty
@@ -10899,6 +11068,36 @@ function set (data, k, v) {
   }
   data.size++
   data[key] = new Entry(k, v, key)
+}
+
+
+/***/ },
+
+/***/ 54:
+/***/ function(module, exports) {
+
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
 }
 
 
@@ -11488,7 +11687,7 @@ exports.log = function() {
  *     prototype.
  * @param {function} superCtor Constructor function to inherit prototype from.
  */
-exports.inherits = __webpack_require__(52);
+exports.inherits = __webpack_require__(54);
 
 exports._extend = function(origin, add) {
   // Don't do anything if add isn't an object
