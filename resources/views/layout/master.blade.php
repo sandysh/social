@@ -9,8 +9,9 @@
 
     <!-- Fonts -->      
     <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css?family=Inconsolata|Merriweather:300,400,700" rel="stylesheet">
-
+    <!-- <link href="https://fonts.googleapis.com/css?family=Inconsolata|Merriweather:300,400,700" rel="stylesheet"> -->
+    <link href="https://fonts.googleapis.com/css?family=Dosis:400,500,600,700|Lato:300,400,700" rel="stylesheet">
+    
     <!-- Compiled and minified CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/css/materialize.min.css">
     <link rel="stylesheet" type="text/css" href="css/style.css">

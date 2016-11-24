@@ -1,80 +1,91 @@
 <style>
-body {
-    /*background: url('images/background.jpg');*/
-    width: 100%;
-    height: 100vh;
-}
+    html, body {
+        height: 100%;
+    }
 
-.brand {
-    position: absolute;
-    top: 40px;
-    background: teal;
-    padding: 10px;
-    left: 42%;
-    right: 42%; 
-}
+    body {
+        background: url(/images/background.jpg);
+    }
 
-.new-ac {
-    background: #26a69a;
-    color: white;
-    padding: 5px;
-}
+    .main-login {
+        height: 100%;
+        width: 100%;
+        display: table;
+    }
+
+    .brand{
+        position: relative;
+        background: teal;
+        padding: 5px 30px;
+        top: -50px;
+    }
+
+    .login-wrapper {
+        display: table-cell;
+        vertical-align: middle;
+    }
+
+    .login-container {
+        width: 450px;
+        margin: 0 auto;
+    }
+    .register-link {
+        padding: 5px;
+    }
 </style>
 <template>
-    <div>
-        <div class="section"></div>
-        <div class="main">
-            <center>
-                <div class="section"></div>
-                <h5 class="indigo-text">Please, login into your account</h5>
-                <div class="section"></div>
-
-                <div class="container">
-                    <div class="z-depth-1 grey lighten-4 row" style="display: inline-block; padding: 32px 48px 0px 48px; border: 1px solid #EEE;">
-
-                        <form class="col s12" method="post" action="/api/v1/login">
-                            <div class='row'>
-                                <div class='col s12'></div>
-                            </div>
-
+    <div class="main-login">
+        <div class="login-wrapper">
+            <div class="login-container">
+                <div class="card z-depth-3 grey lighten-4">
+                    <div class="card-content">
+                        <div class="center">
+                            <span class="card-title brand white-text">Social-Tasking</span>
+                        </div>
+                        <form method="post" action="/api/v1/login" @submit.prevent="authenticate">
                             <div class='row'>
                                 <div class='input-field col s12'>
-                                    <input class='validate' type='email' name='email' id='email' v-model='credentials.email' />
-                                    <label for='email'>Enter your email</label>
+                                    <input class='validate' type='email' name='email' v-model="credentials.email"/>
+                                    <label for='email' class="_center">Enter your email</label>
                                 </div>
                             </div>
 
                             <div class='row'>
                                 <div class='input-field col s12'>
-                                    <input class='validate' type='password' name='password' id='password' v-model="credentials.password" />
-                                    <label for='password'>Enter your password</label>
+                                    <input class='validate' type='password' name='password' v-model="credentials.password"/>
+                                    <label for='password' class="_center">Enter your password</label>
                                 </div>
-                                <label style='float: right;'>
-                                    <a class='pink-text' href='#!'><b>Forgot Password?</b></a>
+                                <label class="right">
+                                    <router-link to="/forgot-password" class="pink-text">
+                                        <strong>Forgot Password?</strong>
+                                    </router-link>
                                 </label>
                             </div>
-
-                            <br />
-                            <center>
-                                <div class='row'>
-                                    <button @click.prevent = "authenticate()" type='submit' name='btn_login' class='col s12 btn btn-large waves-effect indigo'>{{loading ? 'Loading' : 'Login'}}</button>
-                                </div>
-                            </center>
+                            <div class='row'>
+                                <button type='submit'
+                                    class='col s12 btn btn-large waves-effect teal'
+                                    :disabled="loading"
+                                >
+                                    <loader v-if="loading" style="width:auto" color="grey"></loader>
+                                    <span v-else>Login</span>
+                                </button>
+                            </div>
                         </form>
-                   </div>
+                    </div>
                 </div>
-                <a href="#!">Create account</a>
-            </center>
-            <div class="section"></div>
-            <div class="section"></div>
+
+                <div class="center">
+                    <router-link to="/register" class="white-text teal lighten-1 register-link">Create account</router-link>
+                </div>
+            </div>
         </div>
     </div>
 </template>
 
 <script>
-module.exports = {
+export default {
     name: "Login",
-    data: function () {
+    data () {
         return {
             loading: false,
             credentials: {
@@ -86,6 +97,8 @@ module.exports = {
 
     methods: {
         authenticate () {
+            if(this.loading) return;
+
             this.loading = true;
 
             this.$auth.login({
