@@ -9,7 +9,7 @@ $router->group(['prefix' => 'v1', 'namespace' => 'Api\V1'], function () use ($ro
 {
     $router->post('auth/login', 'AuthController@login');
     $router->post('auth/register', 'AuthController@register');
-    //$router->get('auth/refresh', ['middleware' => 'jwt.refresh', function(){}]);
+    $router->get('auth/refresh', ['middleware' => 'jwt.refresh', function(){}]);
 
     $router->group(['middleware' => ['jwt.auth']], function () use ($router) {
         $router->get('auth/user', 'UserController@user');

@@ -19,6 +19,16 @@
         max-width: 100% !important;
         width: 98%;
     }
+    .st-backdrop {
+        display: none;
+        background: rgba(0, 0, 0, 0.4);
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+        width: 100%;
+    }
 </style>
 <template>
     <div v-if="(companies.length || settings.skip) && $auth.ready()">
@@ -34,6 +44,7 @@
                 </section>
             </div>
         </div>
+        <div class="st-backdrop"></div>
     </div>
 
     <company-creator v-else></company-creator>
