@@ -13,11 +13,15 @@ use App\Transformers\CompanyTransformer;
 use League\Fractal\Resource\Collection;
 use Tymon\JWTAuth\JWTAuth;
 
-class CompaniesController extends ApiController
+class CompanyController extends ApiController
 {
     protected $auth;
     protected $user;
     protected $company;
+
+    protected $casts = [
+        'pivot.owner' => 'boolean'
+    ];
 
     public function __construct(JWTAuth $auth, Company $company)
     {
@@ -34,7 +38,7 @@ class CompaniesController extends ApiController
     public function store(CompanyRequest $request)
     {
         $company = $this->user->companies()->create(
-            $request->only('name', 'description')
+            $request->only('name', 'description'), ['owner' => true]
         );
 
         return response()->item($company, new CompanyTransformer, 'companies', 201);

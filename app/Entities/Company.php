@@ -20,6 +20,15 @@ class Company extends Model
         return $this->belongsToMany(User::class)->withPivot('owner');
     }
 
+    public function newPivot(Model $parent, array $attributes, $table, $exists)
+    {
+        if ($parent instanceof User) {
+            return new Pivot\CompanyUserPivot($parent, $attributes, $table, $exists);
+        }
+
+        return parent::newPivot($parent, $attributes, $table, $exists);
+    }
+
     public function owner()
     {
         return $this->belongsToMany(User::class)->where('owner', true);
