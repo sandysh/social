@@ -5,3 +5,5 @@ Route::get('/', function () {
 
 Route::get('/m-login','MockupController@login');
 Route::get('/m-dashboard','MockupController@dashboard');
+
+Route::resource('companies', 'CompaniesController');

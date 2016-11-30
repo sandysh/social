@@ -1,9 +1,7 @@
 <?php
 /**
  * Author: Dipesh Rijal
- * Date:   2016-09-17 23:11:49
- * Last Modified by:   Dipesh Rijal
- * Last Modified time: 2016-09-18 01:02:32
+ * Date: 2016-11-30 4:44 PM
  */
 namespace App\Http\Controllers\Api\V1;
 

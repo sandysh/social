@@ -1,9 +1,7 @@
 <?php
 /**
  * Author: Dipesh Rijal
- * Date:   2016-09-18 02:22:19
- * Last Modified by:   Dipesh Rijal
- * Last Modified time: 2016-09-18 02:34:00
+ * Date: 2016-11-30 6:24 PM
  */
 namespace App\Providers;
 

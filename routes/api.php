@@ -15,5 +15,6 @@ $router->group(['prefix' => 'v1', 'namespace' => 'Api\V1'], function () use ($ro
         $router->get('auth/user', 'UserController@user');
     });
 
-    $router->resource('companies', 'CompanyController');
+    $router->resource('companies', 'CompaniesController');
+	$router->resource('projects', 'ProjectsController');
 });

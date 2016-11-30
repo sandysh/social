@@ -1,9 +1,7 @@
 <?php
 /**
- * Author: Laravel
- * Date:   2016-09-17 00:37:43
- * Last Modified by:   Dipesh Rijal
- * Last Modified time: 2016-09-18 03:10:28
+ * Author: Dipesh Rijal
+ * Date: 2016-11-30 4:48 PM
  */
 namespace App\Entities;
 
@@ -26,7 +24,7 @@ class User extends Authenticatable
 
     public function companies()
     {
-        return $this->belongsToMany(Company::class)->withPivot('owner');
+        return $this->belongsToMany(Company::class)->withPivot('is_owner', 'is_active');
     }
 
     public function setPasswordAttribute($password)

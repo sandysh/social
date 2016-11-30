@@ -1,9 +1,7 @@
 <?php
 /**
  * Author: Dipesh Rijal
- * Date:   2016-09-18 01:46:55
- * Last Modified by:   Dipesh Rijal
- * Last Modified time: 2016-09-18 02:04:34
+ * Date: 2016-11-30 6:24 PM
  */
 namespace App\Transformers;
 

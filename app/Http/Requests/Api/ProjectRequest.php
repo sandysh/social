@@ -1,13 +1,13 @@
 <?php
 /**
  * Author: Dipesh Rijal
- * Date: 2016-11-30 6:24 PM
+ * Date: 2016-11-30 6:22 PM
  */
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UserLogin extends FormRequest
+class ProjectRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -27,8 +27,7 @@ class UserLogin extends FormRequest
     public function rules()
     {
         return [
-            'password' => 'required',
-            'email'    => 'required|email',
+            'name' => 'required',
         ];
     }
 }
