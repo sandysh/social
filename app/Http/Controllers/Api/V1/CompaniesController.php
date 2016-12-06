@@ -12,35 +12,39 @@ use Tymon\JWTAuth\JWTAuth;
 
 class CompaniesController extends ApiController
 {
-	protected $company;
+    protected $company;
 
-	public function __construct(Company $company, JWTAuth $auth)
-	{
-		parent::__construct($auth);
-		$this->company = $company;
-	}
+    public function __construct(Company $company, JWTAuth $auth)
+    {
+        parent::__construct($auth);
 
-	public function index()
-	{
-		return response()->collection($this->user->companies, new CompanyTransformer, 'companies');
-	}
+        $this->company = $company;
+    }
 
-	public function store(CompanyRequest $request)
-	{
-		$company = $this->user->companies()->create(
-			$request->only('name', 'description'), [
-				'is_owner'  => true,
-				'is_active' => !$this->user->companies->contains('pivot.is_active', true)
-			]
-		);
+    public function index()
+    {
+        return response()
+            ->collection($this->user->companies, new CompanyTransformer, 'companies');
+    }
 
-		return response()->item($company, new CompanyTransformer, 'companies', 201);
-	}
+    public function store(CompanyRequest $request)
+    {
+        $company = $this->user->companies()->create(
+            $request->only('name', 'description'), [
+                'is_owner'  => true,
+                'is_active' => !$this->user->companies->contains('pivot.is_active', true),
+            ]
+        );
 
-	public function show($id)
-	{
-		$company = $this->company->findOrFail($id);
+        return response()
+            ->item($company, new CompanyTransformer, 'companies', 201);
+    }
 
-		return response()->item($company, new CompanyTransformer, 'companies');
-	}
+    public function show($id)
+    {
+        $company = $this->company->findOrFail($id);
+
+        return response()
+            ->item($company, new CompanyTransformer, 'companies');
+    }
 }

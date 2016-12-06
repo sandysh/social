@@ -13,8 +13,8 @@ class CompanyTransformer extends Fractal\TransformerAbstract
     public function transform(Company $company)
     {
         return [
-            'id'    => (int) $company->id,
-            'name' => $company->name,
+            'id'          => (int) $company->id,
+            'name'        => $company->name,
             'description' => $company->description,
         ];
     }
